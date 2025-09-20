@@ -127,6 +127,8 @@ static struct {
     jmethodID filterInputEvent;
     jmethodID filterPointerMotion;
     jmethodID interceptKeyBeforeQueueing;
+    //Ext add
+    jmethodID interceptMotionBeforeQueueing;
     jmethodID interceptMotionBeforeQueueingNonInteractive;
     jmethodID interceptKeyBeforeDispatching;
     jmethodID dispatchUnhandledKey;
@@ -3626,6 +3628,11 @@ int register_android_server_InputManager(JNIEnv* env) {
 
     GET_METHOD_ID(gServiceClassInfo.getParentSurfaceForPointers, clazz,
                   "getParentSurfaceForPointers", "(I)J");
+
+    //Ext add
+    GET_METHOD_ID(gServiceClassInfo.interceptMotionBeforeQueueing, clazz,
+                  "interceptMotionBeforeQueueing",
+                  "(Landroid/view/MotionEvent;)I");
 
     // InputDevice
 

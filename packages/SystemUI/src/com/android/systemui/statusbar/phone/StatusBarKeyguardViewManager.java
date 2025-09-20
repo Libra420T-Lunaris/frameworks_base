@@ -27,7 +27,6 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.hardware.biometrics.BiometricSourceType;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.SystemClock;
 import android.os.Trace;
 import android.util.Log;
@@ -110,6 +109,17 @@ import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.kotlin.JavaAdapter;
 
+//Ext add
+import android.media.MediaMetadata;
+import android.media.session.PlaybackState;
+import android.os.SystemProperties;
+import org.avium.systemui.keyguard.AviumMusicLockscreenController;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.os.Handler;
+import com.android.systemui.statusbar.StatusBarState; 
+import android.os.PowerManager;
+
 import dagger.Lazy;
 
 import kotlin.Unit;
@@ -137,7 +147,23 @@ import javax.inject.Inject;
 public class StatusBarKeyguardViewManager implements RemoteInputController.Callback,
         StatusBarStateController.StateListener, ConfigurationController.ConfigurationListener,
         ShadeExpansionListener, NavigationModeController.ModeChangedListener,
-        KeyguardViewController, FoldAodAnimationController.FoldAodAnimationStatus {
+        KeyguardViewController, FoldAodAnimationController.FoldAodAnimationStatus, AviumMusicLockscreenController.InteractionListener {
+
+	//Ext add
+    private final AviumMusicLockscreenController mAviumMusicController;
+    private MediaMetadata mMediaMetadata;
+    private PlaybackState mPlaybackState;
+    private boolean mIsAviumMusicLockscreenEnabled;
+    private boolean mIsAviumMusicLockscreenShowing;
+    private MediaController.Callback mMediaCallback;
+    private final MediaSessionManager mMediaSessionManager;
+    private final Handler mHandler;
+    private MediaController mMediaController;
+    private boolean mMusicLockscreenDismissed = false;;
+    private Runnable mDelayedHideRunnable;
+    private final PowerManager mPowerManager; 
+    private PowerManager.WakeLock mStayAwakeWakeLock; 
+    private boolean mIsStayAwakeEnabled;
 
     // When hiding the Keyguard with timing supplied from WindowManager, better be early than late.
     private static final long HIDE_TIMING_CORRECTION_MS = - 16 * 3;
@@ -422,6 +448,7 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
 
     @Inject
     public StatusBarKeyguardViewManager(
+    		@Main Handler handler,
             Context context,
             ViewMediatorCallback callback,
             LockPatternUtils lockPatternUtils,
@@ -455,8 +482,20 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
             DismissCallbackRegistry dismissCallbackRegistry,
             Lazy<BouncerInteractor> bouncerInteractor,
             CommunalSceneInteractor communalSceneInteractor,
-            @Main Handler faceRecognizingHandler
+            @Main Handler faceRecognizingHandler,
+            AviumMusicLockscreenController aviumMusicController,
+            PowerManager powerManager,
+            MediaSessionManager mediaSessionManager
     ) {
+    	//Ext add
+        mAviumMusicController = aviumMusicController;
+        mMediaSessionManager = mediaSessionManager;
+        mHandler = handler;
+        mAviumMusicController.setInteractionListener(this);
+        mPowerManager = powerManager;
+        mStayAwakeWakeLock = mPowerManager.newWakeLock(
+        PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "AviumMusicLockscreen:StayAwake");
+        mStayAwakeWakeLock.setReferenceCounted(false); 
         mContext = context;
         mExecutor = executor;
         mViewMediatorCallback = callback;
@@ -498,6 +537,27 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
     KeyguardDismissTransitionInteractor mKeyguardDismissTransitionInteractor;
     CoroutineDispatcher mMainDispatcher;
 
+	//Ext add
+    @Override
+    public void onSwipeUpToDismiss() {
+        mMusicLockscreenDismissed = true; 
+        showAviumMusicLockscreen(false); 
+    }
+
+    @Override
+    public void onSkipToNext() {
+        if (mMediaController != null) {
+            mMediaController.getTransportControls().skipToNext();
+        }
+    }
+
+    @Override
+    public void onSkipToPrevious() {
+        if (mMediaController != null) {
+            mMediaController.getTransportControls().skipToPrevious();
+        }
+    }
+
     @Override
     public void registerCentralSurfaces(CentralSurfaces centralSurfaces,
             ShadeLockscreenInteractor shadeLockscreenInteractor,
@@ -518,8 +578,151 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
         mCentralSurfacesRegistered = true;
 
         registerListeners();
+        mMediaCallback = new MediaController.Callback() {
+            @Override
+            public void onPlaybackStateChanged(PlaybackState state) {
+                updateAviumMusicLockscreen();
+            }
+
+            @Override
+            public void onMetadataChanged(MediaMetadata metadata) {
+                updateAviumMusicLockscreen();
+            }
+        };
+
+        mMediaSessionManager.addOnActiveSessionsChangedListener(
+                mActiveSessionsListener, null, mHandler);
+        updateActiveMediaController();
     }
 
+    private final MediaSessionManager.OnActiveSessionsChangedListener mActiveSessionsListener =
+            (controllers) -> {
+        updateActiveMediaController();
+    };
+
+    private void updateActiveMediaController() {
+        var controllers = mMediaSessionManager.getActiveSessions(null);
+        MediaController newController = (controllers != null && !controllers.isEmpty()) ? controllers.get(0) : null;
+
+        if (newController != null && newController.equals(mMediaController)) {
+            updateAviumMusicLockscreen();
+            return;
+        }
+
+        if (newController != null && newController.equals(mMediaController)) {
+            return;
+        }
+
+        if (mMediaController != null) {
+            mMediaController.unregisterCallback(mMediaCallback);
+        }
+
+        mMediaController = newController;
+
+        if (mMediaController != null) {
+            mMediaController.registerCallback(mMediaCallback, mHandler);
+        }
+
+        if (mMediaController == null) {
+             showAviumMusicLockscreen(false);
+        } else {
+             mMediaController.registerCallback(mMediaCallback, mHandler);
+             updateAviumMusicLockscreen();
+        }
+    }
+
+    //Ext add
+    private void updateAviumMusicLockscreen() {
+        if (mDelayedHideRunnable != null) {
+            mHandler.removeCallbacks(mDelayedHideRunnable);
+            mDelayedHideRunnable = null;
+        }
+
+        checkAviumSystemProperty();
+        checkStayAwakeProperty();
+
+        PlaybackState playbackState = (mMediaController != null) ? mMediaController.getPlaybackState() : null;
+        MediaMetadata metadata = (mMediaController != null) ? mMediaController.getMetadata() : null;
+        boolean isPlaying = playbackState != null && playbackState.getState() == PlaybackState.STATE_PLAYING;
+
+        final int statusBarState = mStatusBarStateController.getState();
+        final boolean onKeyguard = (statusBarState == StatusBarState.KEYGUARD);
+
+        boolean shouldShow = onKeyguard
+                && !mMusicLockscreenDismissed
+                && mIsAviumMusicLockscreenEnabled
+                && isPlaying; 
+
+        if (shouldShow) {
+            showAviumMusicLockscreen(true);
+            mAviumMusicController.setMediaController(mMediaController); 
+            mAviumMusicController.updateMetadata(metadata);
+            mAviumMusicController.updatePlaybackState(playbackState);
+        } else if (mIsAviumMusicLockscreenShowing) {
+            if (!mIsAviumMusicLockscreenEnabled) {
+                showAviumMusicLockscreen(false);
+            } else {
+                mDelayedHideRunnable = () -> showAviumMusicLockscreen(false);
+                mHandler.postDelayed(mDelayedHideRunnable, 3000);//这里给5s是因为切歌会闪，0.5s不够，2s大部分场景够但网络缓冲也要闪
+            }
+        }
+    }
+
+    private void checkAviumSystemProperty() {
+        //这里可能未来新增音乐锁屏样式，所以用123不用true or false
+        String prop = SystemProperties.get("persist.avium.lockscreen.music", "0");
+        mIsAviumMusicLockscreenEnabled = "1".equals(prop);
+    }
+
+    private void checkStayAwakeProperty() {
+        mIsStayAwakeEnabled = SystemProperties.getBoolean("persist.avium.lockscreen.music.unlock", false);
+    }
+
+    private void showAviumMusicLockscreen(boolean show) {
+        if (mIsAviumMusicLockscreenShowing == show) {
+            return;
+        }
+        
+        ViewGroup rootView = mNotificationShadeWindowController.getWindowRootView();
+        if (rootView == null) {
+            Log.w(TAG, "showAviumMusicLockscreen: getWindowRootView() returned null");
+            return;
+        }
+
+        if (show) {
+            mIsAviumMusicLockscreenShowing = true; 
+            View aviumView = mAviumMusicController.getView();
+            
+            if (aviumView.getParent() != null) {
+                ((ViewGroup) aviumView.getParent()).removeView(aviumView);
+            }
+            
+            rootView.addView(aviumView);
+            mAviumMusicController.onShown(); 
+
+            if (mIsStayAwakeEnabled && !mStayAwakeWakeLock.isHeld()) {
+                mStayAwakeWakeLock.acquire();
+            }
+        } else {
+            mIsAviumMusicLockscreenShowing = false; 
+            if (mStayAwakeWakeLock.isHeld()) {
+                mStayAwakeWakeLock.release();
+            }
+            mAviumMusicController.animateDismissAndHide(); 
+        }
+    }
+
+    @Override
+    public void onPlayPauseToggle() {
+        if (mMediaController == null) return;
+        
+        PlaybackState state = mMediaController.getPlaybackState();
+        if (state != null && state.getState() == PlaybackState.STATE_PLAYING) {
+            mMediaController.getTransportControls().pause();
+        } else {
+            mMediaController.getTransportControls().play();
+        }
+    }
 
     /**
      * Sets the given OccludingAppBiometricUI to null if it's the current auth interceptor. Else,
@@ -762,6 +965,7 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
         SysUiStatsLog.write(SysUiStatsLog.KEYGUARD_STATE_CHANGED,
                 SysUiStatsLog.KEYGUARD_STATE_CHANGED__STATE__SHOWN);
         Trace.endSection();
+        updateAviumMusicLockscreen();
     }
 
     /**

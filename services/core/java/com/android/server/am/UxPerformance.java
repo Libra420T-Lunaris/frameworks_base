@@ -448,8 +448,8 @@ public class UxPerformance implements IUxPerformance {
 
             Notification notification = new Notification.Builder(ctx, SystemNotificationChannels.UPDATES)
                     .setSmallIcon(android.R.drawable.stat_sys_download)
-                    .setContentTitle("Optimizing apps")
-                    .setContentText("Preparing to optimize " + total + " apps...")
+                    .setContentTitle("Optimizing Performance")
+                    .setContentText("Preparing to optimize performance " + total + " apps...")
                     .setOngoing(true)
                     .setProgress(total, 0, false)
                     .setLocalOnly(true)
@@ -470,8 +470,8 @@ public class UxPerformance implements IUxPerformance {
 
             Notification notification = new Notification.Builder(ctx, SystemNotificationChannels.UPDATES)
                     .setSmallIcon(android.R.drawable.stat_sys_download)
-                    .setContentTitle("Optimizing apps")
-                    .setContentText("Device may experience lag or heat until finished")
+                    .setContentTitle("Optimizing Performance")
+                    .setContentText("Device may experience some lag or heat until finished")
                     .setSubText(processed + " / " + total)
                     .setOngoing(true)
                     .setProgress(total, processed, false)
@@ -505,8 +505,8 @@ public class UxPerformance implements IUxPerformance {
 
             Notification notification = new Notification.Builder(ctx, SystemNotificationChannels.UPDATES)
                     .setSmallIcon(android.R.drawable.stat_sys_download)
-                    .setContentTitle("Optimizing apps")
-                    .setContentText("System will optimize apps during screen off")
+                    .setContentTitle("Optimizing Performance")
+                    .setContentText("System will optimize Lunaris during screen off")
                     .setSubText(processed + " / " + total)
                     .setOngoing(true)
                     .setProgress(total, processed, false)

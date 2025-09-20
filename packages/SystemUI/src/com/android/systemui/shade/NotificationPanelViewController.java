@@ -250,11 +250,14 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import org.avium.systemui.lockscreen.CustomLockscreenClockManager;
+
 @SysUISingleton
 public final class NotificationPanelViewController implements
         ShadeSurface, Dumpable, BrightnessMirrorShowingInteractor {
 
     public static final String TAG = NotificationPanelView.class.getSimpleName();
+    private static final String AVIUM_TAG = "AVIUM_LOCKSCREEN";
     private static final boolean DEBUG_LOGCAT = Compile.IS_DEBUG && Log.isLoggable(TAG, Log.DEBUG);
     private static final boolean DEBUG_DRAWABLE = false;
     /** The parallax amount of the quick settings translation when dragging down the panel. */
@@ -262,6 +265,9 @@ public final class NotificationPanelViewController implements
     private static final int NO_FIXED_DURATION = -1;
     private static final long SHADE_OPEN_SPRING_OUT_DURATION = 350L;
     private static final long SHADE_OPEN_SPRING_BACK_DURATION = 400L;
+    
+    //Ext add
+    private final CustomLockscreenClockManager mCustomLockscreenClockManager;
 
     /**
      * The factor of the usual high velocity that is needed in order to reach the maximum overshoot
@@ -725,6 +731,7 @@ public final class NotificationPanelViewController implements
             Lazy<ShadeDisplaysRepository> shadeDisplaysRepository,
             TunerService tunerService,
             Context context,
+            CustomLockscreenClockManager customLockscreenClockManager,
             WindowRootViewBlurInteractor windowRootViewBlurInteractor) {
         mBlurConfig = blurConfig;
         mWindowRootViewBlurInteractor = windowRootViewBlurInteractor;
@@ -735,6 +742,8 @@ public final class NotificationPanelViewController implements
                 updateExpandedHeightToMaxHeight();
             }
         });
+        //Ext add
+        mCustomLockscreenClockManager = customLockscreenClockManager;
         mAmbientState = ambientState;
         mView = view;
         mStatusBarKeyguardViewManager = statusBarKeyguardViewManager;
@@ -3881,6 +3890,30 @@ public final class NotificationPanelViewController implements
             mConfigurationListener.onThemeChanged();
             mFalsingManager.addTapListener(mFalsingTapListener);
             mKeyguardIndicationController.init();
+            
+                        //Ext add
+            if (mCustomLockscreenClockManager != null && mCustomLockscreenClockManager.isEnabled()) {
+                mNotificationStackScrollLayoutController.setOnHeightChangedListener(
+                    new ExpandableView.OnHeightChangedListener() {
+                        @Override
+                        public void onHeightChanged(ExpandableView view, boolean needsAnimation) {
+                            boolean hasNotifications = hasVisibleNotifications();
+                            Log.d(AVIUM_TAG, "onHeightChanged: Notification state changed, hasNotifications=" + hasNotifications);
+                            mCustomLockscreenClockManager.onNotificationStateChanged(hasNotifications);
+                        }
+
+                        @Override
+                        public void onReset(ExpandableView view) {
+                            boolean hasNotifications = hasVisibleNotifications();
+                            Log.d(AVIUM_TAG, "onReset: Notification state reset, hasNotifications=" + hasNotifications);
+                            mCustomLockscreenClockManager.onNotificationStateChanged(hasNotifications);
+                        }
+                    }
+                );
+                boolean initialHasNotifications = hasVisibleNotifications();
+                Log.d(AVIUM_TAG, "Initial notification state: hasNotifications=" + initialHasNotifications);
+                mCustomLockscreenClockManager.onNotificationStateChanged(initialHasNotifications);
+			}
         }
 
         @Override

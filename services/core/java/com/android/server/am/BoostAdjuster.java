@@ -18,6 +18,7 @@ package com.android.server.am;
 import static com.android.server.am.DeviceData.*;
 import static com.android.server.am.BoostFlagsManager.*;
 import static com.android.server.am.AxUtils.*;
+import static com.android.server.am.BurstEngineConstants.*;
 import static android.os.Process.*;
 
 import android.app.role.RoleManager;
@@ -25,6 +26,7 @@ import android.content.Context;
 import android.hardware.power.Mode;
 import android.os.*;
 import android.os.Process;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Slog;
 import com.android.server.NtServiceInjector;
@@ -106,6 +108,12 @@ public class BoostAdjuster implements IBoostAdjuster {
     
     private boolean mModernKernel = true;
     private boolean mInstallBoostActive = false;
+
+    private final HashMap<Integer, Integer> mBoostCount = new HashMap<>();
+    private final HashMap<Integer, Integer> mOriginalPriorities = new HashMap<>();
+
+    private int mResourceBoostRequests = 0;
+    private final Runnable mLauncherBoostReset = this::restoreLauncherBoost;
     
     static {
         sFileCache.put(CPU_BG, new File(CPU_BG));
@@ -287,7 +295,6 @@ public class BoostAdjuster implements IBoostAdjuster {
                 " duration=" + duration);
         
         if (duration >= 0) {
-            AxBurstEngine.animationBoost(pid, renderTid, duration);
             resourcesBoost(true);
         }
         
@@ -299,7 +306,6 @@ public class BoostAdjuster implements IBoostAdjuster {
         Message m = mHandler.obtainMessage(pid);
         m.setCallback(() -> { 
             resourcesBoost(false);
-            AxBurstEngine.animationBoost(pid, renderTid, -1L);
         });
         mHandler.removeMessages(pid);
         mHandler.sendMessageDelayed(m, boostDuration);
@@ -332,20 +338,6 @@ public class BoostAdjuster implements IBoostAdjuster {
                 : String.valueOf(Runtime.getRuntime().availableProcessors()));
         }
         mBackgroundBoosted = !limit;
-    }
-
-    public void appLaunchBoost(String packageName, int durationHint) {
-        if (mData == null) return;
-        if (durationHint == 0) {
-            adjustBackground(true);
-            enablePerformanceMode(true);
-            UiThread.getHandler().postDelayed(() -> {
-                adjustBackground(false);
-                enablePerformanceMode(false);
-            }, 2000);
-        } else {
-            inputBoost();
-        }
     }
 
     private class InputBoostResetRunnable implements Runnable {
@@ -512,7 +504,21 @@ public class BoostAdjuster implements IBoostAdjuster {
         mHandler.sendMessage(mHandler.obtainMessage(MSG_GAME_BOOST, enabled ? 1 : 0));
     }
 
-    public void resourcesBoost(boolean enabled) {
+    public synchronized void resourcesBoost(boolean enabled) {
+        if (enabled) {
+            mResourceBoostRequests++;
+            if (mResourceBoostRequests == 1) {
+                performResourceBosot(true);
+            }
+        } else {
+            mResourceBoostRequests--;
+            if (mResourceBoostRequests == 0) {
+                performResourceBosot(false);
+            }
+        }
+    }
+
+    private void performResourceBosot(boolean enabled) {
         if (gameActive()) {
             enabled = true;
         }
@@ -728,14 +734,105 @@ public class BoostAdjuster implements IBoostAdjuster {
     
     public void boostThread(int tid) {
         mHandler.post(() -> {
-            Process.setThreadGroupAndCpuset(tid, Process.THREAD_GROUP_TOP_APP);
-            Process.setThreadAffinity(tid, 2);
-            if (mModernKernel) {
-                Process.setThreadScheduler(tid, SCHED_RR | SCHED_RESET_ON_FORK, 1);
-            }
+            Process.setThreadScheduler(tid, SCHED_RR | SCHED_RESET_ON_FORK, 1);
         });
     }
     
+    public void systemThreadBoost(int tid, long duration) {
+        if (!mModernKernel || tid <= 0) return;
+
+        applyThreadPriorityBoost(tid, duration);
+
+        int myPid = Process.myPid();
+        if (myPid > 0) {
+            ProcessRecord pr = NtServiceInjector.getAm().getProcessRecordByPid(myPid);
+            if (pr != null) {
+                int renderTid = pr.getRenderThreadTid();
+                if (renderTid > 0) {
+                    applyThreadPriorityBoost(renderTid, duration);
+                }
+            }
+        }
+    }
+
+    private void applyThreadPriorityBoost(int tid, long duration) {
+        if (duration <= 0) {
+            if (duration == 0) tryBoostThreadPriority(tid);
+            else if (duration == -1) tryRestoreThreadPriority(tid);
+            return;
+        }
+
+        if (tryBoostThreadPriority(tid)) {
+            mHandler.postDelayed(() -> tryRestoreThreadPriority(tid), duration);
+        }
+    }
+
+    private synchronized boolean tryBoostThreadPriority(int tid) {
+        Integer count = mBoostCount.get(tid);
+        if (count != null) {
+            mBoostCount.put(tid, count + 1);
+        } else {
+            try {
+                mOriginalPriorities.put(tid, Process.getThreadPriority(tid));
+                ActivityManagerService.scheduleAsRoundRobinPriority(tid, true);
+                mBoostCount.put(tid, 1);
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void launcherItemsLoadingBoost(long duration) {
+        if (!mModernKernel) return;
+        try {
+            final int pid = Process.myPid();
+            if (pid > 0) {
+                if (duration >= 0) {
+                    ActivityManagerService.scheduleAsRoundRobinPriority(pid, true);
+                    adjustCpusetCpus(CPU_FG, mData.fgLimited, duration);
+                    if (duration > 0) {
+                        mHandler.removeCallbacks(mLauncherBoostReset);
+                        mHandler.postDelayed(mLauncherBoostReset, duration);
+                    }
+                } else {
+                    restoreLauncherBoost();
+                }
+            }
+        } catch (Exception e) {
+        }
+    }
+
+    private void restoreLauncherBoost() {
+        try {
+            final int pid = Process.myPid();
+            adjustCpusetCpus(CPU_FG, mData.allCores, 0);
+            Process.setThreadScheduler(pid, Process.SCHED_OTHER, 0);
+            Process.setThreadPriority(pid, Process.THREAD_PRIORITY_FOREGROUND);
+        } catch (Exception e) {
+        }
+    }
+
+    private synchronized void tryRestoreThreadPriority(int tid) {
+        Integer count = mBoostCount.get(tid);
+        if (count == null) return;
+
+        if (count > 1) {
+            mBoostCount.put(tid, count - 1);
+        } else {
+            try {
+                Integer origPrio = mOriginalPriorities.get(tid);
+                if (origPrio != null) {
+                    Process.setThreadScheduler(tid, SCHED_OTHER, 0);
+                    Process.setThreadPriority(tid, origPrio);
+                }
+            } catch (Exception e) {
+            }
+            mBoostCount.remove(tid);
+            mOriginalPriorities.remove(tid);
+        }
+    }
+
     public void limitForegroundCpu(boolean limit) {
         if (mData == null) return;
         long duration = limit ? 0L : -1L;

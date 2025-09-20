@@ -197,10 +197,14 @@ constructor(
             )
             val largeClockTopMargin =
                 if (com.android.systemui.shared.Flags.clockReactiveSmartspaceLayout()) {
-                    keyguardClockViewModel.getLargeClockTopMargin()
-                } else {
                     keyguardClockViewModel.getLargeClockTopMargin() +
-                        getDimen(DATE_WEATHER_VIEW_HEIGHT)
+                        getDimen(ENHANCED_SMARTSPACE_HEIGHT)
+                } else if (smartspaceViewModel.isSmartspaceEnabled) {
+                    keyguardClockViewModel.getLargeClockTopMargin() +
+                        getDimen(DATE_WEATHER_VIEW_HEIGHT) +
+                        getDimen(ENHANCED_SMARTSPACE_HEIGHT)
+                } else {
+                    keyguardClockViewModel.getLargeClockTopMargin()
                 }
             connect(
                 customR.id.lockscreen_clock_view_large,

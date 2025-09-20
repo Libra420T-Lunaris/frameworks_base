@@ -208,6 +208,11 @@ import java.util.concurrent.Executor;
 
 import javax.inject.Named;
 
+//Ext add
+import org.avium.systemui.keyguard.AviumMusicLockscreenController;
+import dagger.Lazy;
+import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
+
 /**
  * A dagger module for injecting components of System UI that are required by System UI.
  *
@@ -548,5 +553,14 @@ public abstract class SystemUIModule {
     @SysUISingleton
     static TileSpacingConfig provideTileSpacingConfig(Context context) {
         return new TileSpacingConfig(context);
+    }
+    
+    //Ext add
+    @Provides
+    @SysUISingleton 
+    static AviumMusicLockscreenController provideAviumMusicLockscreenController(
+            Context context,
+            Lazy<StatusBarKeyguardViewManager> statusBarKeyguardViewManagerProvider) {
+        return new AviumMusicLockscreenController(context, statusBarKeyguardViewManagerProvider);
     }
 }
