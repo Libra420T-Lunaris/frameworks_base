@@ -61,10 +61,8 @@ public class NtAppRefreshRateProvider {
         }, "120,120,60", true, true);
 
         addConfig(DEFAULT_APP_CONFIGS, new String[]{
-            "com.tencent.ig","com.tencent.igfit","com.rekoo.pubgm","com.vng.pubgmobile","com.pubg.krmobile","com.tencent.igce"
-        }, "90,90,60", true, true);
-
-        addConfig(DEFAULT_APP_CONFIGS, new String[]{ "com.pubg.imobile" }, "120,120,60", true, true);
+            "com.tencent.ig","com.tencent.igfit","com.rekoo.pubgm","com.vng.pubgmobile","com.pubg.krmobile","com.tencent.igce", "com.pubg.imobile"
+        }, "120,120,60", true, true);
 
         addConfig(DEFAULT_APP_CONFIGS, new String[]{
             "com.twitter.android","com.nothing.weather","com.android.vending","com.android.settings",
