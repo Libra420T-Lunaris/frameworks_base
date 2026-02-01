@@ -40,9 +40,9 @@ import org.avium.systemui.depthwallpaper.DepthWallpaperSetup;
 
 public class RunrunClockController extends BaseLockscreenController {
 
-    private static final int DIGIT_WIDTH_DP = 187;
-    private static final int DIGIT_HEIGHT_DP = 184;
-    private static final int LEFT_COLUMN_UP_DP = 56;
+    private static final int DIGIT_WIDTH_DP = 180;
+    private static final int DIGIT_HEIGHT_DP = 175;
+    private static final int LEFT_COLUMN_UP_DP = 52;
 
     private ConstraintLayout mInnerContainer;
     private ImageView mHour1, mHour2, mMinute1, mMinute2;
@@ -194,7 +194,7 @@ public class RunrunClockController extends BaseLockscreenController {
         } else {
             mDigitalClockDisplayManager.updateTimeDisplay(timeString);
         }
-        mDateView.setText(LockscreenClockUtils.getCurrentTimeString(mContext.getString(R.string.runrun_date_format), Locale.CHINESE));
+        mDateView.setText(LockscreenClockUtils.getCurrentTimeString(mContext.getString(R.string.runrun_date_format)));
     }
 
     @Override

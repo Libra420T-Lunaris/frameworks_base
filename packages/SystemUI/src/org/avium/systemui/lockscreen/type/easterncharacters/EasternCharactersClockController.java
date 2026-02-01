@@ -48,8 +48,10 @@ public class EasternCharactersClockController extends BaseLockscreenController {
 
     private TextView mHourChar1, mHourChar2, mDateInfoView, mMinuteChar1, mMinuteChar2;
     private Typeface mClockTypeface;
-    private static final String[] CHINESE_DIGITS = {"", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
-    private static final String[] CHINESE_HOUR_UNITS = {"", "十", "廿"};
+    // Basic digits 1-10
+    private static final String[] CHINESE_DIGITS = {"", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+    // Tens-place markers (Empty, Ten, Twenty)
+    private static final String[] CHINESE_HOUR_UNITS = {"", "10", "20"};
 
 
     @Override
@@ -147,21 +149,31 @@ public class EasternCharactersClockController extends BaseLockscreenController {
     }
 
     private void updateClockCharacters(int hour, int minute) {
-        String[] hourChars;
-        String[] minuteChars;
+    String[] hourChars;
+    String[] minuteChars;
 
-        if (minute == 0) {
-            hourChars = new String[]{convertToChineseHour(hour), ""};
-            minuteChars = new String[]{"時", ""};
-        } else {
-            String hourText = convertToChineseHour(hour);
-            if (hourText.length() == 1) {
-                hourChars = new String[]{hourText, "時"};
-            } else {
-                hourChars = new String[]{String.valueOf(hourText.charAt(0)), String.valueOf(hourText.charAt(1))};
-            }
-            minuteChars = convertToChineseMinute(minute);
+    // Case: Top of the hour (e.g., 2:00)
+    if (minute == 0) {
+        // hourChars gets [Number, Empty]
+        hourChars = new String[]{"", ""};
+        // minuteChars displays the "O'clock" label
+        minuteChars = new String[]{"••", ""}; 
+    } 
+    // Case: Time includes minutes (e.g., 2:15)
+    else {
+        String hourText = convertToChineseHour(hour);
+        // If hour is 1 character long (1:xx through 9:xx)
+        if (hourText.length() == 1) {
+            hourChars = new String[]{hourText, "••"}; // Show: [Number, "Hour"]
+        } 
+        // If hour is 2 characters long (10:xx, 11:xx, 12:xx)
+        else {
+            // Split the two characters into two separate slots
+            hourChars = new String[]{String.valueOf(hourText.charAt(0)), String.valueOf(hourText.charAt(1))};
         }
+        // Get the minute characters separately
+        minuteChars = convertToChineseMinute(minute);
+    }
 
         updateTextView(mHourChar1, hourChars[0]);
         updateTextView(mHourChar2, hourChars[1]);
@@ -192,9 +204,9 @@ public class EasternCharactersClockController extends BaseLockscreenController {
         if (hour >= 1 && hour <= 10) {
             return CHINESE_DIGITS[hour];
         } else if (hour == 11) {
-            return "十一";
+            return "11";
         } else if (hour == 12) {
-            return "十二";
+            return "12";
         }
         return "";
     }
@@ -203,15 +215,15 @@ public class EasternCharactersClockController extends BaseLockscreenController {
         if (minute < 10) {
             return new String[]{CHINESE_DIGITS[minute], ""};
         } else if (minute == 10) {
-            return new String[]{"十", "分"};
+            return new String[]{"10", "Minute"};
         } else if (minute < 20) {
-            return new String[]{"十", CHINESE_DIGITS[minute % 10]};
+            return new String[]{"Ten", CHINESE_DIGITS[minute % 10]};
         } else {
             int tens = minute / 10;
             int ones = minute % 10;
             String tensChar = CHINESE_DIGITS[tens];
             if (ones == 0) {
-                return new String[]{tensChar, "十"};
+                return new String[]{tensChar, "10"};
             } else {
                 return new String[]{tensChar, CHINESE_DIGITS[ones]};
             }

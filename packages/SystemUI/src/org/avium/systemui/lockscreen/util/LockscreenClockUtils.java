@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The AviumUI Project
+ * Copyright (C) 2025-2026 The AviumUI Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import java.util.Calendar;
 public class LockscreenClockUtils {
 
     private static final String TAG = "AVIUM_LOCKSCREEN";
-    
+
     private static final int DEFAULT_COLOR = Color.WHITE;
 
     public static String getCurrentTimeString(String pattern, Locale locale) {
@@ -54,7 +54,7 @@ public class LockscreenClockUtils {
     public static String getWeekdayString(Context context, Locale locale) {
         Calendar calendar = Calendar.getInstance();
         int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-        
+
         String weekdayKey;
         switch (dayOfWeek) {
             case Calendar.SUNDAY:

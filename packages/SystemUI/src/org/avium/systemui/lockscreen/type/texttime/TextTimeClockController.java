@@ -44,7 +44,6 @@ import java.util.Locale;
 public class TextTimeClockController extends BaseLockscreenController {
 
     private TextView mIntroView, mHourView, mMinuteView;
-    private TextView mMonthView, mDayView, mWeekView;
     private Typeface mClockTypeface;
     
     private String[] mNumberWords;
@@ -84,19 +83,6 @@ public class TextTimeClockController extends BaseLockscreenController {
         mIntroView = createTextView(50);
         mHourView = createTextView(50);
         mMinuteView = createTextView(50);
-        mMonthView = createTextView(22);
-        mDayView = createTextView(22);
-        mWeekView = createTextView(22);
-
-        mMonthView.setIncludeFontPadding(false);
-        mDayView.setIncludeFontPadding(false);
-        mWeekView.setIncludeFontPadding(false);
-        mMonthView.setGravity(Gravity.CENTER);
-        mDayView.setGravity(Gravity.CENTER);
-        mWeekView.setGravity(Gravity.CENTER);
-        mMonthView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        mDayView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        mWeekView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
     }
 
     private TextView createTextView(float sizeSp) {
@@ -140,17 +126,6 @@ public class TextTimeClockController extends BaseLockscreenController {
         );
         childLp.setMargins(0, 0, betweenPx, 0);
 
-        dateRow.addView(mMonthView, childLp);
-        dateRow.addView(mDayView);
-        LinearLayout.LayoutParams weekLp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        weekLp.setMargins(betweenPx, 0, 0, 0);
-        dateRow.addView(mWeekView, weekLp);
-
-        mContainer.addView(dateRow);
-
         LockscreenLayoutManager layoutManager = new LockscreenLayoutManager(mContainer);
         ConstraintSet cs = layoutManager.getConstraintSet();
         
@@ -158,18 +133,6 @@ public class TextTimeClockController extends BaseLockscreenController {
         int bottomMarginPx = (int) (60 * density);
         int rightMarginPx = (int) (30 * density);
         int containerId = textContainer.getId();
-
-        cs.connect(containerId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP);
-        cs.connect(containerId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM);
-        cs.connect(containerId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, leftMarginPx);
-        cs.constrainWidth(containerId, ConstraintSet.WRAP_CONTENT);
-        cs.constrainHeight(containerId, ConstraintSet.WRAP_CONTENT);
-        cs.setVerticalBias(containerId, 0.25f);
-
-        cs.connect(dateRow.getId(), ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, bottomMarginPx);
-        cs.connect(dateRow.getId(), ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, rightMarginPx);
-        cs.constrainWidth(dateRow.getId(), ConstraintSet.WRAP_CONTENT);
-        cs.constrainHeight(dateRow.getId(), ConstraintSet.WRAP_CONTENT);
 
         layoutManager.applyLayoutChanges();
     }
@@ -197,17 +160,13 @@ public class TextTimeClockController extends BaseLockscreenController {
         String daySuffix = mContext.getString(R.string.texttime_day_suffix);
         String weekFormat = mContext.getString(R.string.texttime_week_format);
 
-        String monthChinese = convertToChineseNumber(month) + monthSuffix;
-        String dayChinese = convertToChineseNumber(day) + daySuffix;
+        String monthChinese = convertToChineseNumber(month);
+        String dayChinese = convertToChineseNumber(day);
 
         SimpleDateFormat sdfWeek = new SimpleDateFormat(weekFormat, Locale.getDefault());
         String weekStr = sdfWeek.format(calendar.getTime());
-
-        mMonthView.setText(verticalize(monthChinese));
-        mDayView.setText(verticalize(dayChinese));
-        mWeekView.setText(verticalize(weekStr));
     }
-
+    
     private String verticalize(String s) {
         if (s == null || s.isEmpty()) return s;
         StringBuilder sb = new StringBuilder();
@@ -243,15 +202,6 @@ public class TextTimeClockController extends BaseLockscreenController {
     public void applyStyles() {
         int introColor = LockscreenClockUtils.parseColor(CustomLockscreenSettings.getHourColor());
         int timeColor = LockscreenClockUtils.parseColor(CustomLockscreenSettings.getMinuteColor());
-        
-        mIntroView.setTextColor(introColor);
-        mHourView.setTextColor(timeColor);
-        mMinuteView.setTextColor(timeColor);
-
-        mDayView.setTextColor(timeColor);
-        mMonthView.setTextColor(timeColor);
-        
-        mWeekView.setTextColor(timeColor);
     }
 
     @Override
@@ -261,8 +211,5 @@ public class TextTimeClockController extends BaseLockscreenController {
         mIntroView = null;
         mHourView = null;
         mMinuteView = null;
-        mMonthView = null;
-        mDayView = null;
-        mWeekView = null;
     }
 }

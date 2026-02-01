@@ -3,11 +3,12 @@
     <string name="avium_lockscreen_non_artist">Unknown artist</string>
     <string name="sunday">Sunday</string>
     <string name="monday">Monday</string>
-    <string name="tuesday">Tuesday</string> <string name="wednesday">Wednesday</string>
+    <string name="tuesday">Tuesday</string>
+    <string name="wednesday">Wednesday</string>
     <string name="thursday">Thursday</string>
     <string name="friday">Friday</string>
     <string name="saturday">Saturday</string>
-    <string name="date_format">M d EEEE</string>
+    <string name="date_format">d M EEEE</string>
     <string name="texttime_month_suffix">Month</string>
     <string name="texttime_day_suffix">Day</string>
     <string name="texttime_week_format">EEEE</string>
@@ -47,13 +48,13 @@
         <item>Fifty</item>
     </string-array>
     <string name="runrun_time_format">HH:mm</string>
-    <string name="runrun_date_format">M/d\nE</string>
+    <string name="runrun_date_format">d M EEE</string>
     <string name="runrun_blur_effect">blur</string>
 
-    <string name="classic_date_format">M d EEEE</string>
+    <string name="classic_date_format">d M EEEE</string>
     <string name="classic_time_format">HH:mm</string>
 
-    <string name="guoguo_date_format">M d EEEE</string>
+    <string name="guoguo_date_format">d M EEEE</string>
     <string name="guoguo_time_format">HHmm</string>
     <string name="guoguo_blur_effect">blur</string>
     <string name="media_blur_clock_title">Enjoy the Time</string>

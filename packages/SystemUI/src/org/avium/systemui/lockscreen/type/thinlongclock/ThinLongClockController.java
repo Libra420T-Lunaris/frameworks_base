@@ -42,7 +42,7 @@ import java.util.Locale;
 public class ThinLongClockController extends BaseLockscreenController {
 
     private static final int DIGIT_WIDTH_DP = 94;
-    private static final int DIGIT_HEIGHT_DP = 340;
+    private static final int DIGIT_HEIGHT_DP = 335;
 
     private ImageView mHour1, mHour2, mMinute1, mMinute2;
     private ImageView[] mDigitViews;
